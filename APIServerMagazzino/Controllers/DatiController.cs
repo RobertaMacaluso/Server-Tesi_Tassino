@@ -11,7 +11,7 @@ using System.Text.Json;
 public class DatiController : ControllerBase
 {
     private readonly string _connectionString =
-        $"Data Source={Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Magazzino.db")}";
+        $"Data Source={Path.Combine(Directory.GetCurrentDirectory(), "Data", "Magazzino.db")}";
 
     // =========================
     // GET: /dati
