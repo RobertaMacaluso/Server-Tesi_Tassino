@@ -7,7 +7,7 @@ using System.Text.Json;
 public class ShelfController : ControllerBase
 {
     private readonly string _connectionString =
-        $"Data Source={Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Magazzino.db")}";
+        $"Data Source={Path.Combine(Directory.GetCurrentDirectory(), "Data", "Magazzino.db")}";
 
     // =========================
     // GET: /shelf
