@@ -7,7 +7,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Magazzino.db");
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "Data", "Magazzino.db");
 
 // TEST DB
 using (var conn = new SqliteConnection($"Data Source={dbPath}"))
