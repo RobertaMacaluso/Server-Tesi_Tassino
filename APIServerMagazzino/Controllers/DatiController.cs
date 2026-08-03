@@ -222,6 +222,83 @@ public class DatiController : ControllerBase
 
         return Ok(updated);
     }
+
+    // =========================
+    // GET: /dati/container/{containerId}
+    // =========================
+    [HttpGet("container/{containerId}")]
+    public IActionResult GetArtifactsByContainer(int containerId)
+    {
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+
+        // Recupera tutti gli scaffali
+        var shelves = new List<(int id, int parentId)>();
+
+        var shelfCmd = conn.CreateCommand();
+        shelfCmd.CommandText =
+            "SELECT Id, ParentShelfId FROM Shelf";
+
+        using (var reader = shelfCmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                shelves.Add((
+                    reader.GetInt32(0),
+                    reader.IsDBNull(1) ? -1 : reader.GetInt32(1)
+                ));
+            }
+        }
+
+        // Costruisce l'insieme degli id di tutti gli scaffali
+        // discendenti (compreso quello richiesto)
+        var containerIds = new HashSet<int>();
+
+        void Visit(int id)
+        {
+            if (!containerIds.Add(id))
+                return;
+
+            foreach (var shelf in shelves)
+            {
+                if (shelf.parentId == id)
+                    Visit(shelf.id);
+            }
+        }
+
+        Visit(containerId);
+
+        // Recupera gli artefatti
+        var artifacts = new List<Artifact>();
+
+        foreach (int id in containerIds)
+        {
+            var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT * FROM Artifact WHERE ShelvingUnit = $id";
+            cmd.Parameters.AddWithValue("$id", id);
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                artifacts.Add(new Artifact
+                {
+                    id = reader.GetInt32(0),
+                    name = reader.GetString(1),
+                    textDescription = reader.GetString(2),
+                    shelvingUnit = reader.GetInt32(3),
+                    lastShelvingUnit = reader.IsDBNull(4) ? -1 : reader.GetInt32(4),
+                    containerLocalPose = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    artifactWidth = reader.IsDBNull(6) ? 0f : reader.GetFloat(6),
+                    artifactHeight = reader.IsDBNull(7) ? 0f : reader.GetFloat(7),
+                    artifactDepth = reader.IsDBNull(8) ? 0f : reader.GetFloat(8)
+                });
+            }
+        }
+
+        return Ok(artifacts);
+    }
 }
 
 public class Artifact
