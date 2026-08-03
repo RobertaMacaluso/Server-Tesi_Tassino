@@ -181,6 +181,97 @@ public class ShelfController : ControllerBase
 
         return Ok(updated);
     }
+
+    // =========================
+    // DELETE: /shelf/{id}
+    // =========================
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+
+        using var transaction = conn.BeginTransaction();
+
+        try
+        {
+            // Trova ricorsivamente tutti i container da eliminare
+            List<int> idsToDelete = new();
+            CollectChildren(id, conn, idsToDelete);
+
+            // Sparenta gli artefatti
+            foreach (int shelfId in idsToDelete)
+            {
+                var updateArtifacts = conn.CreateCommand();
+                updateArtifacts.Transaction = transaction;
+                updateArtifacts.CommandText = @"
+                UPDATE Artifact
+                SET ShelvingUnit = -1,
+                    LastShelvingUnit = -1
+                WHERE ShelvingUnit = $id;
+            ";
+
+                updateArtifacts.Parameters.AddWithValue("$id", shelfId);
+                updateArtifacts.ExecuteNonQuery();
+            }
+
+            // Elimina i container (figli prima del padre)
+            idsToDelete.Reverse();
+
+            foreach (int shelfId in idsToDelete)
+            {
+                var delete = conn.CreateCommand();
+                delete.Transaction = transaction;
+                delete.CommandText =
+                    "DELETE FROM Shelf WHERE Id=$id";
+
+                delete.Parameters.AddWithValue("$id", shelfId);
+                delete.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+
+            var deleted = new
+            {
+                eventType = "delete",
+                entityType = "shelf",
+                id = id
+            };
+
+            await WebSocketManager.Broadcast(
+                JsonSerializer.Serialize(deleted));
+
+            return Ok(deleted);
+        }
+        catch (Exception ex)
+        {
+            transaction.Rollback();
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private void CollectChildren(int id, SqliteConnection conn, List<int> result)
+    {
+        result.Add(id);
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT Id FROM Shelf WHERE ParentShelfId = $id";
+
+        cmd.Parameters.AddWithValue("$id", id);
+
+        using var reader = cmd.ExecuteReader();
+
+        List<int> children = new();
+
+        while (reader.Read())
+            children.Add(reader.GetInt32(0));
+
+        reader.Close();
+
+        foreach (int child in children)
+            CollectChildren(child, conn, result);
+    }
 }
 
 public class Shelf
