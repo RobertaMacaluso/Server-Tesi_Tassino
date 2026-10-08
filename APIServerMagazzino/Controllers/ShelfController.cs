@@ -44,6 +44,8 @@ public class ShelfController : ControllerBase
                 roomDepth = reader.IsDBNull(8) ? 0f : reader.GetFloat(8),
 
                 roomCenterPose = reader.IsDBNull(9) ? "" : reader.GetString(9),
+
+                logicalHierarchyLevel = reader.IsDBNull(10) ? -1 : reader.GetInt32(10),
             });
         }
 
@@ -63,9 +65,9 @@ public class ShelfController : ControllerBase
 
         cmd.CommandText = @"
             INSERT INTO Shelf
-            (Name, Pose, ParentShelfId, IsRoom, MarkerId, RoomWidth, RoomHeight, RoomDepth, RoomCenterPose)
+            (Name, Pose, ParentShelfId, IsRoom, MarkerId, RoomWidth, RoomHeight, RoomDepth, RoomCenterPose, LogicalHierarchyLevel)
             VALUES
-            ($name, $pose, $parent, $isRoom, $markerId, $w, $h, $d, $cPose);
+            ($name, $pose, $parent, $isRoom, $markerId, $w, $h, $d, $cPose, $logicalLevel);
 
             SELECT last_insert_rowid();
             ";
@@ -86,6 +88,8 @@ public class ShelfController : ControllerBase
 
         cmd.Parameters.AddWithValue("$cPose", dto.roomCenterPose ?? "");
 
+        cmd.Parameters.AddWithValue("$logicalLevel", dto.logicalHierarchyLevel);
+
         var id = (long)cmd.ExecuteScalar();
 
         // WEBSOCKET MESSAGE
@@ -102,7 +106,8 @@ public class ShelfController : ControllerBase
             roomWidth = dto.roomWidth,
             roomHeight = dto.roomHeight,
             roomDepth = dto.roomDepth,
-            roomCenterPose = dto.roomCenterPose
+            roomCenterPose = dto.roomCenterPose,
+            logicalHierarchyLevel = dto.logicalHierarchyLevel
         };
 
         await WebSocketManager.Broadcast(
@@ -133,7 +138,8 @@ public class ShelfController : ControllerBase
                 RoomWidth = $w,
                 RoomHeight = $h,
                 RoomDepth = $d,
-                RoomCenterPose = $cPose
+                RoomCenterPose = $cPose,
+                LogicalHierarchyLevel = $logicalLevel
             WHERE Id = $id
             ";
 
@@ -152,6 +158,8 @@ public class ShelfController : ControllerBase
         cmd.Parameters.AddWithValue("$d", dto.roomDepth);
 
         cmd.Parameters.AddWithValue("$cPose", dto.roomCenterPose ?? "");
+
+        cmd.Parameters.AddWithValue("$logicalLevel", dto.logicalHierarchyLevel);
 
         cmd.Parameters.AddWithValue("$id", id);
 
@@ -173,8 +181,9 @@ public class ShelfController : ControllerBase
             roomWidth = dto.roomWidth,
             roomHeight = dto.roomHeight,
             roomDepth = dto.roomDepth,
-            roomCenterPose = dto.roomCenterPose
-    
+            roomCenterPose = dto.roomCenterPose,
+            logicalHierarchyLevel = dto.logicalHierarchyLevel
+
         };
 
         await WebSocketManager.Broadcast(JsonSerializer.Serialize(updated));
@@ -286,6 +295,7 @@ public class Shelf
     public float roomHeight { get; set; }
     public float roomDepth { get; set; }
     public string? roomCenterPose { get; set; }
+    public int logicalHierarchyLevel { get; set; }
 }
 
 public class ShelfCreate
@@ -299,4 +309,5 @@ public class ShelfCreate
     public float roomHeight { get; set; }
     public float roomDepth { get; set; }
     public string? roomCenterPose { get; set; }
+    public int logicalHierarchyLevel { get; set; }
 }
